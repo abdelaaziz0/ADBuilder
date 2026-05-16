@@ -1,0 +1,440 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ADBuilder M1 Directory Provider",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "sites": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/site"
+      }
+    },
+    "siteLinks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/siteLink"
+      }
+    },
+    "ous": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ouEntry"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/group"
+      }
+    },
+    "users": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/user"
+      }
+    },
+    "computers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/computer"
+      }
+    },
+    "fineGrainedPasswordPolicies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/fgpp"
+      }
+    },
+    "delegations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/delegation"
+      }
+    },
+    "aclEdges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/aclEdge"
+      }
+    }
+  },
+  "definitions": {
+    "site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "subnets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "siteLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "sites"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sites": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string"
+          }
+        },
+        "cost": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "replicationFrequency": {
+          "type": "integer",
+          "minimum": 15
+        }
+      }
+    },
+    "ouEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "protectFromDeletion": {
+          "type": "boolean"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ouEntry"
+          }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "ou",
+        "scope",
+        "category"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "ou": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "DomainLocal",
+            "Global",
+            "Universal"
+          ]
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Security",
+            "Distribution"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "memberOf": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "samAccountName",
+        "ou"
+      ],
+      "properties": {
+        "samAccountName": {
+          "type": "string"
+        },
+        "givenName": {
+          "type": "string"
+        },
+        "surname": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "userPrincipalName": {
+          "type": "string"
+        },
+        "ou": {
+          "type": "string"
+        },
+        "password": {
+          "$ref": "#/definitions/passwordField"
+        },
+        "changePasswordAtLogon": {
+          "type": "boolean"
+        },
+        "passwordNeverExpires": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string"
+        },
+        "department": {
+          "type": "string"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "spns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "accountControlFlags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "computer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "ou"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "ou": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "fgpp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "precedence"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "precedence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "minPasswordLength": {
+          "type": "integer"
+        },
+        "passwordHistoryCount": {
+          "type": "integer"
+        },
+        "complexityEnabled": {
+          "type": "boolean"
+        },
+        "appliesTo": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lockoutThreshold": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "lockoutDuration": {
+          "type": "string",
+          "default": "00:30:00",
+          "description": "TimeSpan format, e.g. 00:30:00"
+        },
+        "lockoutObservationWindow": {
+          "type": "string",
+          "default": "00:30:00",
+          "description": "TimeSpan format, e.g. 00:30:00"
+        },
+        "maxPasswordAge": {
+          "type": "string",
+          "default": "42.00:00:00",
+          "description": "TimeSpan format, e.g. 42.00:00:00"
+        },
+        "minPasswordAge": {
+          "type": "string",
+          "default": "1.00:00:00",
+          "description": "TimeSpan format, e.g. 1.00:00:00"
+        },
+        "reversibleEncryptionEnabled": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "delegation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ou",
+        "trustee",
+        "rights"
+      ],
+      "properties": {
+        "ou": {
+          "type": "string"
+        },
+        "trustee": {
+          "type": "string"
+        },
+        "rights": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "appliesTo": {
+          "type": "string"
+        },
+        "inheritance": {
+          "type": "string"
+        },
+        "labUnsafe": {
+          "type": "boolean"
+        }
+      }
+    },
+    "aclEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trustee",
+        "target",
+        "rights"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "trustee": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "rights": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inheritance": {
+          "type": "string"
+        },
+        "objectType": {
+          "type": "string"
+        },
+        "labUnsafe": {
+          "type": "boolean"
+        }
+      }
+    },
+    "passwordField": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "value",
+                "env",
+                "prompt",
+                "secretManagement"
+              ]
+            },
+            "value": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "vault": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

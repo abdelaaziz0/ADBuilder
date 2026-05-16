@@ -1,0 +1,365 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ADBuilder M1 Root Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "metadata",
+    "mode",
+    "execution",
+    "providers"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configVersion"
+      ],
+      "properties": {
+        "configVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        }
+      }
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "newForest",
+        "additionalDC",
+        "childDomain"
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "labMode": {
+          "type": "boolean",
+          "default": false
+        },
+        "reconcile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "global": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "default": {
+                  "type": "string",
+                  "enum": [
+                    "createOnly",
+                    "additive",
+                    "update",
+                    "exact"
+                  ]
+                }
+              }
+            },
+            "perType": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "createOnly",
+                      "additive",
+                      "update",
+                      "exact"
+                    ]
+                  },
+                  "allowDelete": {
+                    "type": "boolean"
+                  },
+                  "allowMove": {
+                    "type": "boolean"
+                  },
+                  "allowPasswordReset": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "forest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "domainName": {
+          "type": "string"
+        },
+        "netbiosName": {
+          "type": "string"
+        },
+        "forestMode": {
+          "type": "string"
+        },
+        "domainMode": {
+          "type": "string"
+        },
+        "installDns": {
+          "type": "boolean"
+        },
+        "databasePath": {
+          "type": "string"
+        },
+        "logPath": {
+          "type": "string"
+        },
+        "sysvolPath": {
+          "type": "string"
+        },
+        "dsrmPassword": {
+          "$ref": "#/definitions/passwordField"
+        }
+      }
+    },
+    "additionalDC": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "domainName": {
+          "type": "string"
+        },
+        "credential": {
+          "$ref": "#/definitions/credentialField"
+        },
+        "siteName": {
+          "type": "string"
+        },
+        "installDns": {
+          "type": "boolean"
+        },
+        "globalCatalog": {
+          "type": "boolean"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "replicationSourceDC": {
+          "type": "string"
+        },
+        "databasePath": {
+          "type": "string"
+        },
+        "logPath": {
+          "type": "string"
+        },
+        "sysvolPath": {
+          "type": "string"
+        },
+        "dsrmPassword": {
+          "$ref": "#/definitions/passwordField"
+        }
+      }
+    },
+    "childDomain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "parentDomainName": {
+          "type": "string"
+        },
+        "newDomainName": {
+          "type": "string"
+        },
+        "newDomainNetbiosName": {
+          "type": "string"
+        },
+        "credential": {
+          "$ref": "#/definitions/credentialField"
+        },
+        "installDns": {
+          "type": "boolean"
+        },
+        "createDnsDelegation": {
+          "type": "boolean"
+        },
+        "replicationSourceDC": {
+          "type": "string"
+        },
+        "siteName": {
+          "type": "string"
+        },
+        "domainMode": {
+          "type": "string"
+        },
+        "databasePath": {
+          "type": "string"
+        },
+        "logPath": {
+          "type": "string"
+        },
+        "sysvolPath": {
+          "type": "string"
+        },
+        "dsrmPassword": {
+          "$ref": "#/definitions/passwordField"
+        }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directory": {
+          "$ref": "providers/directory.schema.json"
+        },
+        "dns": {
+          "$ref": "#/definitions/reservedProvider"
+        },
+        "gpo": {
+          "$ref": "#/definitions/reservedProvider"
+        },
+        "kerberos": {
+          "$ref": "#/definitions/reservedProvider"
+        },
+        "adcs": {
+          "$ref": "#/definitions/reservedProvider"
+        }
+      }
+    },
+    "labVulnerabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "$ref": "providers/assertions.schema.json#/definitions/assertion"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "newForest"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "forest"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "additionalDC"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "additionalDC"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "childDomain"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "childDomain"
+        ]
+      }
+    }
+  ],
+  "definitions": {
+    "reservedProvider": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "credentialField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "username",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "$ref": "#/definitions/passwordField"
+        }
+      }
+    },
+    "passwordField": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "value",
+                "env",
+                "prompt",
+                "secretManagement"
+              ]
+            },
+            "value": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "vault": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

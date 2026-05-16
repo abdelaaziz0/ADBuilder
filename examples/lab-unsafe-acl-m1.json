@@ -1,0 +1,27 @@
+{
+  "metadata": { "configVersion": "0.1", "description": "M1 lab-unsafe ACL example" },
+  "mode": "newForest",
+  "execution": { "labMode": true, "reconcile": { "global": { "default": "additive" } } },
+  "forest": {
+    "domainName": "unsafe.lab",
+    "netbiosName": "UNSAFE",
+    "installDns": true,
+    "dsrmPassword": { "source": "env", "name": "ADBUILDER_DSRM_PASSWORD" }
+  },
+  "providers": {
+    "directory": {
+      "enabled": true,
+      "ous": [{ "name": "Sensitive" }],
+      "aclEdges": [
+        {
+          "name": "Domain Users GenericAll on Sensitive OU",
+          "trustee": "UNSAFE\\Domain Users",
+          "target": "OU=Sensitive,DC=unsafe,DC=lab",
+          "rights": ["GenericAll"],
+          "labUnsafe": true
+        }
+      ]
+    }
+  },
+  "assertions": []
+}

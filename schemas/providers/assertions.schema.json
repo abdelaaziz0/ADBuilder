@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "userExists",
+            "groupExists",
+            "computerExists",
+            "ouExists",
+            "memberOf"
+          ]
+        },
+        "identity": {
+          "type": "string"
+        },
+        "principal": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        },
+        "recursive": {
+          "type": "boolean"
+        },
+        "expectedFor": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "labUnsafe"
+          ]
+        }
+      }
+    }
+  }
+}
