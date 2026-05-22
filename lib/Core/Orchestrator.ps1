@@ -9,6 +9,7 @@ function Invoke-ADBuilder {
         [switch] $Force,
         [switch] $LabUnsafe,
         [switch] $NonInteractive,
+        [switch] $UnsafeReducedValidation,
         [switch] $AllowReducedValidation
     )
 
@@ -21,7 +22,7 @@ function Invoke-ADBuilder {
         $configJson = Get-Content -LiteralPath $ConfigPath -Raw
         $configHash = Get-ADBuilderStringHash -Text $configJson
 
-        Invoke-ADBuilderCanonicalSchemaValidation -ConfigPath $ConfigPath -JsonText $configJson -AllowReducedValidation:$AllowReducedValidation
+        Invoke-ADBuilderCanonicalSchemaValidation -ConfigPath $ConfigPath -JsonText $configJson -UnsafeReducedValidation:$UnsafeReducedValidation -AllowReducedValidation:$AllowReducedValidation
         $config = Import-ADBuilderConfig -ConfigPath $ConfigPath -JsonText $configJson
         Invoke-ADBuilderSemanticValidation -Config $config -LabUnsafe:$LabUnsafe -NonInteractive:$NonInteractive -Force:$Force
 
@@ -147,6 +148,12 @@ function Invoke-ADBuilderStageB {
         } catch {
             Write-ADBuilderLog -Level Error -Message "Provider failed '$name': $($_.Exception.Message)"
             Add-ADBuilderSummary -Bucket "provider:$name" -Action Failed
+            $failed = New-Object System.Collections.ArrayList
+            if (-not (Test-ADBuilderHasProperty $state 'failedProviders')) { $state | Add-Member -NotePropertyName failedProviders -NotePropertyValue @() -Force }
+            foreach ($p in @($state.failedProviders)) { [void]$failed.Add([string]$p) }
+            if (@($failed) -notcontains $name) { [void]$failed.Add($name) }
+            $state.failedProviders = [string[]]$failed
+            Save-ADBuilderState -State $state -Path $StatePath
             throw
         }
     }

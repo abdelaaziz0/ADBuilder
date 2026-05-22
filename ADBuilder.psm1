@@ -1,7 +1,7 @@
 Set-StrictMode -Version 2.0
 
 $script:ADBuilderRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script:ADBuilderEngineVersion = '0.3.0-rc3'
+$script:ADBuilderEngineVersion = '0.3.3'
 $script:ADBuilderProviders = @{}
 
 $coreFiles = @(

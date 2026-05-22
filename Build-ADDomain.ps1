@@ -8,6 +8,7 @@ param(
     [switch] $Force,
     [switch] $LabUnsafe,
     [switch] $NonInteractive,
+    [switch] $UnsafeReducedValidation,
     [switch] $AllowReducedValidation
 )
 
@@ -21,4 +22,4 @@ if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major 
 $moduleManifest = Join-Path $PSScriptRoot 'ADBuilder.psd1'
 Import-Module $moduleManifest -Force
 
-Invoke-ADBuilder -ConfigPath $ConfigPath -Resume:$Resume -DryRun:$DryRun -IgnoreDrift:$IgnoreDrift -StatePath $StatePath -Force:$Force -LabUnsafe:$LabUnsafe -NonInteractive:$NonInteractive -AllowReducedValidation:$AllowReducedValidation -WhatIf:$WhatIfPreference
+Invoke-ADBuilder -ConfigPath $ConfigPath -Resume:$Resume -DryRun:$DryRun -IgnoreDrift:$IgnoreDrift -StatePath $StatePath -Force:$Force -LabUnsafe:$LabUnsafe -NonInteractive:$NonInteractive -UnsafeReducedValidation:$UnsafeReducedValidation -AllowReducedValidation:$AllowReducedValidation -WhatIf:$WhatIfPreference

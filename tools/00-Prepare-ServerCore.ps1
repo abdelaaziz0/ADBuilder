@@ -73,8 +73,14 @@ $DefaultUserPassword = Get-OrCreateSecret -Name 'ADBUILDER_DEFAULT_USER_PASSWORD
 if ([string]::IsNullOrWhiteSpace($PrePromotionDns)) { $PrePromotionDns = $Gateway }
 $mask = Convert-PrefixToMask $PrefixLength
 Write-Host "Configuring IPv4 on $InterfaceAlias -> $StaticIP/$PrefixLength gw $Gateway dns $PrePromotionDns" -ForegroundColor Cyan
+if ($null -eq (Get-NetAdapter -Name $InterfaceAlias -ErrorAction SilentlyContinue)) {
+    $available = @(Get-NetAdapter -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name)
+    throw "Network adapter '$InterfaceAlias' not found. Available adapters: $($available -join ', '). Re-run with -InterfaceAlias set to one of these."
+}
 & netsh interface ipv4 set address name="$InterfaceAlias" source=static address=$StaticIP mask=$mask gateway=$Gateway | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "netsh failed to set the static IPv4 address on '$InterfaceAlias' (exit $LASTEXITCODE). The VM was not reconfigured; not renaming or rebooting." }
 & netsh interface ipv4 set dnsservers name="$InterfaceAlias" source=static address=$PrePromotionDns validate=no | Out-Host
+if ($LASTEXITCODE -ne 0) { throw "netsh failed to set DNS servers on '$InterfaceAlias' (exit $LASTEXITCODE). The VM was not reconfigured; not renaming or rebooting." }
 
 $admin = (Get-LocalUser | Where-Object { $_.SID -like '*-500' } | Select-Object -First 1).Name
 if ($admin) {

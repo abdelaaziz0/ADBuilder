@@ -1,7 +1,7 @@
 function Test-ADBuilderHasProperty {
     param($Object, [Parameter(Mandatory=$true)][string]$Name)
     if ($null -eq $Object) { return $false }
-    return @($Object.PSObject.Properties.Name) -contains $Name
+    return ($null -ne $Object.PSObject.Properties[$Name])
 }
 
 function Get-ADBuilderProperty {

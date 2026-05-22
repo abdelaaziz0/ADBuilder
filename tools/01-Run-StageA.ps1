@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ConfigPath = '.\examples\lab-newforest-m1.json',
+    [string]$ConfigPath = '.\examples\reference.json',
     [switch]$ResetState,
     [switch]$SkipDryRun,
     [switch]$NoReducedValidation
@@ -15,16 +15,20 @@ if (-not $env:ADBUILDER_DEFAULT_USER_PASSWORD) { $env:ADBUILDER_DEFAULT_USER_PAS
 if (-not $env:ADBUILDER_DSRM_PASSWORD) { throw 'ADBUILDER_DSRM_PASSWORD is not set. Run tools\00-Prepare-ServerCore.ps1 first.' }
 if (-not $env:ADBUILDER_DEFAULT_USER_PASSWORD) { throw 'ADBUILDER_DEFAULT_USER_PASSWORD is not set. Run tools\00-Prepare-ServerCore.ps1 first.' }
 if ($ResetState -and (Test-Path .\state\current-run.json)) { Remove-Item .\state\current-run.json -Force }
-$rv = @()
-if (-not $NoReducedValidation) { $rv += '-AllowReducedValidation' }
+
+$validateSplat = @{ ConfigPath = $ConfigPath; NonInteractive = $true; PrintResolvedPlan = $true }
+if (-not $NoReducedValidation) { $validateSplat.UnsafeReducedValidation = $true }
 Write-Host 'Validating config...' -ForegroundColor Cyan
-& .\Validate-ADBuilderConfig.ps1 -ConfigPath $ConfigPath @rv -NonInteractive -PrintResolvedPlan
+& .\Validate-ADBuilderConfig.ps1 @validateSplat
 if ($LASTEXITCODE -ne 0) { throw 'Validation failed.' }
+
+$buildSplat = @{ ConfigPath = $ConfigPath; NonInteractive = $true }
+if (-not $NoReducedValidation) { $buildSplat.UnsafeReducedValidation = $true }
 if (-not $SkipDryRun) {
     Write-Host 'Dry run...' -ForegroundColor Cyan
-    & .\Build-ADDomain.ps1 -ConfigPath $ConfigPath -DryRun @rv -NonInteractive
+    & .\Build-ADDomain.ps1 @buildSplat -DryRun
     if ($LASTEXITCODE -ne 0) { throw 'Dry run failed.' }
 }
 Write-Host 'Running Stage A. Do not interrupt.' -ForegroundColor Yellow
-& .\Build-ADDomain.ps1 -ConfigPath $ConfigPath @rv -NonInteractive
+& .\Build-ADDomain.ps1 @buildSplat
 Write-Host 'If Stage A succeeded, reboot with: Restart-Computer -Force' -ForegroundColor Green

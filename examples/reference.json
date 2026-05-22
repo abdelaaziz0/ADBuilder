@@ -1,0 +1,570 @@
+{
+  "metadata": {
+    "configVersion": "0.1",
+    "description": "Reference configuration showing every stable M1 object and documentation-only labVulnerabilities examples.",
+    "author": "ADBuilder"
+  },
+  "mode": "newForest",
+  "execution": {
+    "labMode": true,
+    "reconcile": {
+      "global": {
+        "default": "additive"
+      },
+      "perType": {
+        "sites": {
+          "mode": "additive",
+          "allowDelete": false
+        },
+        "siteLinks": {
+          "mode": "additive",
+          "allowDelete": false
+        },
+        "ous": {
+          "mode": "additive",
+          "allowDelete": false,
+          "allowMove": false
+        },
+        "groups": {
+          "mode": "additive",
+          "allowDelete": false,
+          "allowMove": true
+        },
+        "users": {
+          "mode": "update",
+          "allowDelete": false,
+          "allowMove": true,
+          "allowPasswordReset": false
+        },
+        "computers": {
+          "mode": "update",
+          "allowDelete": false,
+          "allowMove": true
+        },
+        "memberships": {
+          "mode": "additive",
+          "allowDelete": false
+        },
+        "fineGrainedPasswordPolicies": {
+          "mode": "update",
+          "allowDelete": false
+        },
+        "delegations": {
+          "mode": "update",
+          "allowDelete": false
+        },
+        "aclEdges": {
+          "mode": "update",
+          "allowDelete": false
+        }
+      }
+    }
+  },
+  "forest": {
+    "domainName": "reference.lab",
+    "netbiosName": "REFERENCE",
+    "forestMode": "WinThreshold",
+    "domainMode": "WinThreshold",
+    "installDns": true,
+    "databasePath": "C:\\Windows\\NTDS",
+    "logPath": "C:\\Windows\\NTDS",
+    "sysvolPath": "C:\\Windows\\SYSVOL",
+    "dsrmPassword": {
+      "source": "env",
+      "name": "ADBUILDER_DSRM_PASSWORD"
+    }
+  },
+  "providers": {
+    "directory": {
+      "enabled": true,
+      "sites": [
+        {
+          "name": "HQ",
+          "description": "Main lab site",
+          "subnets": [
+            "10.10.0.0/24",
+            "10.10.10.0/24"
+          ]
+        },
+        {
+          "name": "BRANCH",
+          "description": "Branch lab site",
+          "subnets": [
+            "10.20.0.0/24"
+          ]
+        }
+      ],
+      "siteLinks": [
+        {
+          "name": "HQ-BRANCH",
+          "sites": [
+            "HQ",
+            "BRANCH"
+          ],
+          "cost": 100,
+          "replicationFrequency": 60
+        }
+      ],
+      "ous": [
+        {
+          "name": "Lab",
+          "path": "/",
+          "description": "Root OU managed by ADBuilder",
+          "protectFromDeletion": true,
+          "children": [
+            {
+              "name": "Users",
+              "description": "Standard user accounts",
+              "protectFromDeletion": true,
+              "children": []
+            },
+            {
+              "name": "Admins",
+              "description": "Administrative users",
+              "protectFromDeletion": true,
+              "children": []
+            },
+            {
+              "name": "Groups",
+              "description": "Security and distribution groups",
+              "protectFromDeletion": true,
+              "children": []
+            },
+            {
+              "name": "Computers",
+              "description": "Pre-staged computer accounts",
+              "protectFromDeletion": true,
+              "children": [
+                {
+                  "name": "Servers",
+                  "description": "Server computer accounts",
+                  "protectFromDeletion": true,
+                  "children": []
+                },
+                {
+                  "name": "Workstations",
+                  "description": "Workstation computer accounts",
+                  "protectFromDeletion": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "Service Accounts",
+              "description": "Service users for later providers",
+              "protectFromDeletion": true,
+              "children": []
+            },
+            {
+              "name": "Sensitive",
+              "description": "Target OU for ACL examples",
+              "protectFromDeletion": true,
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "Staging",
+          "path": "/",
+          "description": "Second root-level OU example",
+          "protectFromDeletion": false,
+          "children": []
+        }
+      ],
+      "groups": [
+        {
+          "name": "Ref-Users",
+          "ou": "OU=Groups,OU=Lab",
+          "scope": "Global",
+          "category": "Security",
+          "description": "All reference lab users",
+          "members": [],
+          "memberOf": []
+        },
+        {
+          "name": "Ref-Helpdesk",
+          "ou": "OU=Groups,OU=Lab",
+          "scope": "Global",
+          "category": "Security",
+          "description": "Helpdesk operators",
+          "members": [
+            "bob.helpdesk"
+          ],
+          "memberOf": [
+            "Ref-Privileged-Delegates"
+          ]
+        },
+        {
+          "name": "Ref-Privileged-Delegates",
+          "ou": "OU=Groups,OU=Lab",
+          "scope": "DomainLocal",
+          "category": "Security",
+          "description": "Parent group used to demonstrate group.memberOf nesting",
+          "members": [],
+          "memberOf": []
+        },
+        {
+          "name": "Ref-Servers",
+          "ou": "OU=Groups,OU=Lab",
+          "scope": "Global",
+          "category": "Security",
+          "description": "Computer membership example; WEB01 may be written without trailing dollar",
+          "members": [
+            "WEB01",
+            "DB01$"
+          ],
+          "memberOf": []
+        },
+        {
+          "name": "Ref-App-Readers",
+          "ou": "OU=Groups,OU=Lab",
+          "scope": "Universal",
+          "category": "Distribution",
+          "description": "Distribution group example",
+          "members": [
+            "alice"
+          ],
+          "memberOf": []
+        },
+        {
+          "name": "Ref-ACL-Readers",
+          "ou": "OU=Groups,OU=Lab",
+          "scope": "DomainLocal",
+          "category": "Security",
+          "description": "Trustee group for non-destructive ACL examples",
+          "members": [],
+          "memberOf": []
+        }
+      ],
+      "users": [
+        {
+          "samAccountName": "alice",
+          "givenName": "Alice",
+          "surname": "Martin",
+          "displayName": "Alice Martin",
+          "userPrincipalName": "alice@reference.lab",
+          "ou": "OU=Users,OU=Lab",
+          "password": {
+            "source": "env",
+            "name": "ADBUILDER_DEFAULT_USER_PASSWORD"
+          },
+          "changePasswordAtLogon": false,
+          "passwordNeverExpires": true,
+          "enabled": true,
+          "title": "Analyst",
+          "department": "Security Lab",
+          "groups": [
+            "Ref-Users",
+            "Ref-App-Readers"
+          ],
+          "spns": [],
+          "accountControlFlags": []
+        },
+        {
+          "samAccountName": "bob.helpdesk",
+          "givenName": "Bob",
+          "surname": "Helpdesk",
+          "displayName": "Bob Helpdesk",
+          "userPrincipalName": "bob.helpdesk@reference.lab",
+          "ou": "OU=Users,OU=Lab",
+          "password": {
+            "source": "env",
+            "name": "ADBUILDER_DEFAULT_USER_PASSWORD"
+          },
+          "changePasswordAtLogon": true,
+          "passwordNeverExpires": false,
+          "enabled": true,
+          "title": "Helpdesk Operator",
+          "department": "IT Operations",
+          "groups": [
+            "Ref-Helpdesk"
+          ],
+          "spns": [],
+          "accountControlFlags": []
+        },
+        {
+          "samAccountName": "disabled.template",
+          "givenName": "Disabled",
+          "surname": "Template",
+          "displayName": "Disabled Template",
+          "userPrincipalName": "disabled.template@reference.lab",
+          "ou": "OU=Users,OU=Lab",
+          "password": {
+            "source": "env",
+            "name": "ADBUILDER_DEFAULT_USER_PASSWORD"
+          },
+          "changePasswordAtLogon": false,
+          "passwordNeverExpires": false,
+          "enabled": false,
+          "title": "Disabled account example",
+          "department": "Templates",
+          "groups": [],
+          "spns": [],
+          "accountControlFlags": []
+        }
+      ],
+      "computers": [
+        {
+          "name": "WEB01",
+          "ou": "OU=Servers,OU=Computers,OU=Lab",
+          "description": "Web server computer account",
+          "enabled": true
+        },
+        {
+          "name": "DB01",
+          "ou": "OU=Servers,OU=Computers,OU=Lab",
+          "description": "Database server computer account",
+          "enabled": true
+        },
+        {
+          "name": "WS01",
+          "ou": "OU=Workstations,OU=Computers,OU=Lab",
+          "description": "Workstation computer account",
+          "enabled": false
+        }
+      ],
+      "fineGrainedPasswordPolicies": [
+        {
+          "name": "Ref-Users-FGPP",
+          "precedence": 100,
+          "minPasswordLength": 12,
+          "passwordHistoryCount": 24,
+          "complexityEnabled": true,
+          "reversibleEncryptionEnabled": false,
+          "lockoutThreshold": 0,
+          "lockoutDuration": "00:30:00",
+          "lockoutObservationWindow": "00:30:00",
+          "maxPasswordAge": "42.00:00:00",
+          "minPasswordAge": "1.00:00:00",
+          "appliesTo": [
+            "Ref-Users"
+          ]
+        },
+        {
+          "name": "Ref-Alice-FGPP",
+          "precedence": 50,
+          "minPasswordLength": 16,
+          "passwordHistoryCount": 24,
+          "complexityEnabled": true,
+          "reversibleEncryptionEnabled": false,
+          "lockoutThreshold": 5,
+          "lockoutDuration": "00:15:00",
+          "lockoutObservationWindow": "00:15:00",
+          "maxPasswordAge": "30.00:00:00",
+          "minPasswordAge": "1.00:00:00",
+          "appliesTo": [
+            "alice"
+          ]
+        }
+      ],
+      "delegations": [
+        {
+          "ou": "OU=Users,OU=Lab",
+          "trustee": "REFERENCE\\Ref-Helpdesk",
+          "rights": [
+            "GenericRead",
+            "ReadProperty"
+          ],
+          "accessType": "Allow",
+          "appliesTo": null,
+          "inheritance": null,
+          "labUnsafe": false
+        }
+      ],
+      "aclEdges": [
+        {
+          "name": "Ref ACL readers can read Sensitive OU",
+          "trustee": "REFERENCE\\Ref-ACL-Readers",
+          "target": "OU=Sensitive,OU=Lab",
+          "rights": [
+            "GenericRead",
+            "ReadProperty",
+            "ListChildren"
+          ],
+          "inheritance": null,
+          "objectType": null,
+          "inheritedObjectType": null,
+          "accessType": "Allow",
+          "appliesTo": null,
+          "labUnsafe": false
+        }
+      ]
+    },
+    "dns": {
+      "enabled": false
+    },
+    "gpo": {
+      "enabled": false
+    },
+    "kerberos": {
+      "enabled": false
+    },
+    "adcs": {
+      "enabled": false
+    }
+  },
+  "assertions": [
+    {
+      "type": "ouExists",
+      "identity": "OU=Lab,DC=reference,DC=lab",
+      "expectedFor": "normal"
+    },
+    {
+      "type": "ouExists",
+      "identity": "OU=Users,OU=Lab,DC=reference,DC=lab",
+      "expectedFor": "normal"
+    },
+    {
+      "type": "userExists",
+      "identity": "alice",
+      "expectedFor": "normal"
+    },
+    {
+      "type": "userExists",
+      "identity": "bob.helpdesk",
+      "expectedFor": "normal"
+    },
+    {
+      "type": "groupExists",
+      "identity": "Ref-Users",
+      "expectedFor": "normal"
+    },
+    {
+      "type": "groupExists",
+      "identity": "Ref-Servers",
+      "expectedFor": "normal"
+    },
+    {
+      "type": "computerExists",
+      "identity": "WEB01",
+      "expectedFor": "normal"
+    },
+    {
+      "type": "computerExists",
+      "identity": "DB01",
+      "expectedFor": "normal"
+    },
+    {
+      "type": "memberOf",
+      "principal": "alice",
+      "group": "Ref-Users",
+      "recursive": false,
+      "expectedFor": "normal"
+    },
+    {
+      "type": "memberOf",
+      "principal": "bob.helpdesk",
+      "group": "Ref-Privileged-Delegates",
+      "recursive": true,
+      "expectedFor": "normal"
+    },
+    {
+      "type": "memberOf",
+      "principal": "WEB01",
+      "group": "Ref-Servers",
+      "recursive": false,
+      "expectedFor": "normal"
+    },
+    {
+      "type": "memberOf",
+      "principal": "DB01",
+      "group": "Ref-Servers",
+      "recursive": false,
+      "expectedFor": "normal"
+    }
+  ],
+  "labVulnerabilities": {
+    "enabled": false,
+    "items": [
+      {
+        "type": "directory.weakAcl",
+        "description": "Documentation-only example. M1 does not compile labVulnerabilities; keep enabled=false. For M1 runtime, model real unsafe ACLs under providers.directory.aclEdges with labUnsafe=true and run with -LabUnsafe.",
+        "provider": "directory",
+        "trustee": "REFERENCE\\Ref-Helpdesk",
+        "target": "OU=Sensitive,OU=Lab",
+        "rights": [
+          "WriteDacl"
+        ],
+        "labUnsafe": true
+      },
+      {
+        "type": "directory.asrepRoastable",
+        "description": "Future intent example for setting DONT_REQ_PREAUTH on a lab user. Not executed in M1.",
+        "provider": "directory",
+        "user": "legacy.asrep",
+        "password": {
+          "source": "env",
+          "name": "ADBUILDER_DEFAULT_USER_PASSWORD"
+        },
+        "targetOu": "OU=Users,OU=Lab",
+        "labUnsafe": true
+      },
+      {
+        "type": "kerberos.kerberoastable",
+        "description": "Future intent example for a service account with SPNs. Not executed in M1.",
+        "provider": "kerberos",
+        "serviceAccount": "svc-web",
+        "targetOu": "OU=Service Accounts,OU=Lab",
+        "spns": [
+          "HTTP/web01.reference.lab",
+          "HOST/web01.reference.lab"
+        ],
+        "password": {
+          "source": "env",
+          "name": "ADBUILDER_DEFAULT_USER_PASSWORD"
+        },
+        "labUnsafe": true
+      },
+      {
+        "type": "kerberos.unconstrainedDelegation",
+        "description": "Future intent example for enabling unconstrained delegation on a computer. Not executed in M1.",
+        "provider": "kerberos",
+        "computer": "WEB01",
+        "labUnsafe": true
+      },
+      {
+        "type": "kerberos.rbcd",
+        "description": "Future intent example for Resource-Based Constrained Delegation. Not executed in M1.",
+        "provider": "kerberos",
+        "sourcePrincipal": "WEB01$",
+        "targetComputer": "DB01",
+        "allowedToActPrincipal": "WEB01$",
+        "labUnsafe": true
+      },
+      {
+        "type": "gpo.weakAcl",
+        "description": "Future intent example for weak GPO permissions. Not executed in M1.",
+        "provider": "gpo",
+        "gpoName": "Lab Workstation Baseline",
+        "trustee": "REFERENCE\\Ref-Helpdesk",
+        "rights": [
+          "GpoEdit"
+        ],
+        "labUnsafe": true
+      },
+      {
+        "type": "adcs.esc1",
+        "description": "Future intent example for an ESC1-style certificate template. Not executed in M1.",
+        "provider": "adcs",
+        "templateName": "ESC1-LabUser",
+        "targetCA": "REFERENCE-CA",
+        "enrolleesGroup": "Domain Users",
+        "subjectAltNameSupply": true,
+        "clientAuthentication": true,
+        "labUnsafe": true
+      },
+      {
+        "type": "adcs.esc4",
+        "description": "Future intent example for weak template ACLs. Not executed in M1.",
+        "provider": "adcs",
+        "templateName": "ESC4-Misconfig",
+        "weakAclTrustee": "REFERENCE\\Ref-Helpdesk",
+        "rights": [
+          "WriteDacl",
+          "WriteOwner"
+        ],
+        "labUnsafe": true
+      }
+    ]
+  }
+}

@@ -8,6 +8,7 @@ function Resolve-ADBuilderProviderOrder {
 
     $enabled = @{}
     foreach ($name in @($EnabledProviderNames)) {
+        if ([string]::IsNullOrEmpty([string]$name)) { continue }
         if (-not $Providers.ContainsKey($name)) { throw "Provider '$name' is enabled but not registered." }
         $enabled[$name] = $Providers[$name]
     }

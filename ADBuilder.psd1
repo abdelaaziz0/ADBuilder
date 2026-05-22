@@ -1,6 +1,6 @@
 @{
     RootModule = 'ADBuilder.psm1'
-    ModuleVersion = '0.3.2'
+    ModuleVersion = '0.3.3'
     GUID = 'c6b22c72-5c07-4c51-a5bc-52c5aaf4c8a1'
     Author = 'ADBuilder'
     CompanyName = 'ADBuilder'

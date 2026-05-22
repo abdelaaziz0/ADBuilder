@@ -356,11 +356,38 @@
             "type": "string"
           }
         },
+        "accessType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "Allow",
+            "Deny",
+            null
+          ]
+        },
         "appliesTo": {
-          "type": "string"
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "inheritance": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "labUnsafe": {
           "type": "boolean"
@@ -392,10 +419,49 @@
           }
         },
         "inheritance": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "objectType": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inheritedObjectType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "accessType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "Allow",
+            "Deny",
+            null
+          ]
+        },
+        "appliesTo": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "labUnsafe": {
           "type": "boolean"

@@ -50,9 +50,9 @@ function Invoke-ADBuilderProvider {
         }
         if (-not (Get-Command $funcName -ErrorAction SilentlyContinue)) { throw "Provider '$($Provider.Name)' phase '$phaseName' references missing function '$funcName'." }
         Write-ADBuilderLog -Level Phase -Message "Phase start: $($Provider.Name)/$phaseName"
-        $beforeFailures = Get-ADBuilderObjectFailureCount
+        $beforeFailures = Get-ADBuilderFailureCount
         & $funcName -Context $Context
-        $afterFailures = Get-ADBuilderObjectFailureCount
+        $afterFailures = Get-ADBuilderFailureCount
         if ($afterFailures -gt $beforeFailures) {
             throw "Phase '$($Provider.Name)/$phaseName' completed with $($afterFailures - $beforeFailures) failure(s). Phase not checkpointed."
         }

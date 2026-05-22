@@ -15,7 +15,7 @@ function Import-ADBuilderConfig {
 function Ensure-ADBuilderProperty {
     param($Object,[string]$Name,$Value)
     if ($null -eq $Object) { return }
-    if (-not (@($Object.PSObject.Properties.Name) -contains $Name)) {
+    if ($null -eq $Object.PSObject.Properties[$Name]) {
         $Object | Add-Member -MemberType NoteProperty -Name $Name -Value $Value
     }
 }
@@ -49,6 +49,12 @@ function Normalize-ADBuilderConfig {
     Ensure-ADBuilderProperty $Config.labVulnerabilities 'enabled' $false
     Ensure-ADBuilderProperty $Config.labVulnerabilities 'items' @()
     Ensure-ADBuilderProperty $Config 'assertions' @()
+    foreach ($a in @($Config.assertions)) {
+        Ensure-ADBuilderProperty $a 'identity' $null
+        Ensure-ADBuilderProperty $a 'principal' $null
+        Ensure-ADBuilderProperty $a 'group' $null
+        Ensure-ADBuilderProperty $a 'recursive' $false
+    }
     Ensure-ADBuilderProperty $Config 'providers' ([pscustomobject]@{})
 
     if ((Test-ADBuilderHasProperty $Config 'forest') -and $null -ne $Config.forest) {
@@ -125,9 +131,20 @@ function Normalize-ADBuilderConfig {
     return $Config
 }
 
+function Add-ADBuilderValidationWarning {
+    param([string]$Message)
+    $validationWarnings = Get-Variable -Name ADBuilderValidationWarnings -Scope Script -ErrorAction SilentlyContinue
+    if ($null -ne $validationWarnings -and $null -ne $validationWarnings.Value) { [void]$validationWarnings.Value.Add($Message) }
+    Write-ADBuilderLog -Level Warning -Message $Message
+}
+
 function Invoke-ADBuilderCanonicalSchemaValidation {
     [CmdletBinding()]
-    param([string]$ConfigPath,[string]$JsonText,[switch]$AllowReducedValidation)
+    param([string]$ConfigPath,[string]$JsonText,[switch]$UnsafeReducedValidation,[switch]$AllowReducedValidation)
+    $useUnsafeReducedValidation = [bool]$UnsafeReducedValidation -or [bool]$AllowReducedValidation
+    if ($AllowReducedValidation -and -not $UnsafeReducedValidation) {
+        Add-ADBuilderValidationWarning -Message '-AllowReducedValidation is deprecated and unsafe. Use -UnsafeReducedValidation to explicitly accept that schema validation may be reduced and is not for production/CI.'
+    }
     $schemaPath = Join-Path $script:ADBuilderRoot 'schemas/root.schema.json'
     $dllDir = Join-Path $script:ADBuilderRoot 'third_party/NJsonSchema'
     $dll = Join-Path $dllDir 'NJsonSchema.dll'
@@ -146,16 +163,16 @@ function Invoke-ADBuilderCanonicalSchemaValidation {
             Write-ADBuilderLog -Level Success -Message 'Canonical NJsonSchema validation passed.'
             return
         } catch {
-            if (-not $AllowReducedValidation) { throw "Canonical schema validation failed: $($_.Exception.Message)" }
-            Write-ADBuilderLog -Level Warning -Message "Canonical validator failed; continuing only because -AllowReducedValidation was provided: $($_.Exception.Message)"
+            if (-not $useUnsafeReducedValidation) { throw "Canonical schema validation failed: $($_.Exception.Message)" }
+            Add-ADBuilderValidationWarning -Message "UNSAFE REDUCED VALIDATION: schema validation is reduced because canonical NJsonSchema validation failed. This is not for production/CI. Error: $($_.Exception.Message)"
             return
         }
     }
-    if ($AllowReducedValidation) {
-        Write-ADBuilderLog -Level Warning -Message 'Canonical NJsonSchema validator not found. Continuing with reduced validation because -AllowReducedValidation was provided.'
+    if ($useUnsafeReducedValidation) {
+        Add-ADBuilderValidationWarning -Message 'UNSAFE REDUCED VALIDATION: schema validation is reduced because canonical NJsonSchema validator was not found. This is not for production/CI.'
         return
     }
-    throw 'Canonical NJsonSchema validator not found. Vendor/pin NJsonSchema under third_party/NJsonSchema or pass -AllowReducedValidation for disposable lab testing only.'
+    throw 'Canonical NJsonSchema validator not found. Vendor/pin NJsonSchema under third_party/NJsonSchema or pass -UnsafeReducedValidation for disposable lab testing only.'
 }
 
 function Assert-ADBuilderRequiredString {
@@ -171,6 +188,7 @@ function Test-ADBuilderConfig {
         [Parameter(Mandatory=$true)] [string] $ConfigPath,
         [switch] $Strict,
         [switch] $PrintResolvedPlan,
+        [switch] $UnsafeReducedValidation,
         [switch] $AllowReducedValidation,
         [switch] $LabUnsafe,
         [switch] $NonInteractive,
@@ -181,10 +199,11 @@ function Test-ADBuilderConfig {
     $valid = $false
     $errors = New-Object System.Collections.ArrayList
     $warnings = New-Object System.Collections.ArrayList
+    $script:ADBuilderValidationWarnings = $warnings
     try {
         $resolvedConfigPath = (Resolve-Path -LiteralPath $ConfigPath).Path
         $jsonText = Get-Content -LiteralPath $resolvedConfigPath -Raw
-        Invoke-ADBuilderCanonicalSchemaValidation -ConfigPath $resolvedConfigPath -JsonText $jsonText -AllowReducedValidation:$AllowReducedValidation
+        Invoke-ADBuilderCanonicalSchemaValidation -ConfigPath $resolvedConfigPath -JsonText $jsonText -UnsafeReducedValidation:$UnsafeReducedValidation -AllowReducedValidation:$AllowReducedValidation
         $config = Import-ADBuilderConfig -ConfigPath $resolvedConfigPath -JsonText $jsonText
         Invoke-ADBuilderSemanticValidation -Config $config -LabUnsafe:$LabUnsafe -NonInteractive:$NonInteractive -Force:$Force
         $enabled = Get-ADBuilderEnabledProviders -Config $config
@@ -196,6 +215,7 @@ function Test-ADBuilderConfig {
         [void]$errors.Add($_.Exception.Message)
         Write-ADBuilderLog -Level Fatal -Message $_.Exception.Message
     } finally {
+        $script:ADBuilderValidationWarnings = $null
         Stop-ADBuilderLogging
     }
     return [pscustomobject]@{ Valid = $valid; Errors = @($errors); Warnings = @($warnings) }
@@ -245,6 +265,75 @@ function Test-ADBuilderSecretsNonInteractive {
     }
 }
 
+function Test-ADBuilderHasEffectiveValue {
+    param($Value)
+    if ($null -eq $Value) { return $false }
+    foreach ($item in @($Value)) {
+        if ($null -eq $item) { continue }
+        if ($item -is [string]) {
+            if (-not [string]::IsNullOrWhiteSpace($item)) { return $true }
+        } else {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Get-ADBuilderAclEdgeName {
+    param($Edge)
+    if ($Edge -and (Test-ADBuilderHasProperty $Edge 'name') -and -not [string]::IsNullOrWhiteSpace([string]$Edge.name)) { return [string]$Edge.name }
+    return '<unnamed>'
+}
+
+function Get-ADBuilderAclEdgeTarget {
+    param($Edge)
+    if ($Edge -and (Test-ADBuilderHasProperty $Edge 'target') -and -not [string]::IsNullOrWhiteSpace([string]$Edge.target)) { return [string]$Edge.target }
+    if ($Edge -and (Test-ADBuilderHasProperty $Edge 'ou') -and -not [string]::IsNullOrWhiteSpace([string]$Edge.ou)) { return [string]$Edge.ou }
+    return '<unknown target>'
+}
+
+function Assert-ADBuilderUnsupportedAclPrecisionFields {
+    param($Edge,[string]$CollectionPath)
+    $edgeName = Get-ADBuilderAclEdgeName -Edge $Edge
+    $target = Get-ADBuilderAclEdgeTarget -Edge $Edge
+    $rights = @($Edge.rights)
+    $firstRight = if ($rights.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$rights[0])) { [string]$rights[0] } else { 'requested rights' }
+
+    if ((Test-ADBuilderHasProperty $Edge 'objectType') -and (Test-ADBuilderHasEffectiveValue $Edge.objectType)) {
+        throw "$CollectionPath.objectType is not implemented by this ADBuilder runtime; broad $firstRight would be created instead. Refusing silent broadening. Edge: '$edgeName', target: '$target'."
+    }
+    if ((Test-ADBuilderHasProperty $Edge 'inheritedObjectType') -and (Test-ADBuilderHasEffectiveValue $Edge.inheritedObjectType)) {
+        throw "$CollectionPath.inheritedObjectType is not implemented by this ADBuilder runtime. Refusing to ignore requested inherited object type. Edge: '$edgeName', target: '$target'."
+    }
+    if ((Test-ADBuilderHasProperty $Edge 'inheritance') -and (Test-ADBuilderHasEffectiveValue $Edge.inheritance)) {
+        $inheritance = [string]$Edge.inheritance
+        if ($inheritance -ne 'None') {
+            throw "$CollectionPath.inheritance is not implemented by this ADBuilder runtime. Refusing to ignore requested inheritance '$inheritance'. Edge: '$edgeName', target: '$target'."
+        }
+    }
+    if ((Test-ADBuilderHasProperty $Edge 'accessType') -and (Test-ADBuilderHasEffectiveValue $Edge.accessType)) {
+        $accessType = [string]$Edge.accessType
+        if ($accessType -ne 'Allow') {
+            throw "$CollectionPath.accessType is not implemented by this ADBuilder runtime. Refusing to ignore requested accessType '$accessType'. Edge: '$edgeName', target: '$target'."
+        }
+    }
+    if ((Test-ADBuilderHasProperty $Edge 'appliesTo') -and (Test-ADBuilderHasEffectiveValue $Edge.appliesTo)) {
+        throw "$CollectionPath.appliesTo is not implemented by this ADBuilder runtime. Refusing to ignore requested appliesTo. Edge: '$edgeName', target: '$target'."
+    }
+}
+
+function Assert-ADBuilderDangerousAclRequiresLabUnsafe {
+    param($Edge)
+    $dangerousRights = @('GenericAll','GenericWrite','WriteDacl','WriteOwner','CreateChild','DeleteChild','ExtendedRight','WriteProperty')
+    foreach ($right in @($Edge.rights)) {
+        $rightName = [string]$right
+        if ($dangerousRights -contains $rightName -and (Get-ADBuilderProperty $Edge 'labUnsafe' $false) -ne $true) {
+            $edgeName = Get-ADBuilderAclEdgeName -Edge $Edge
+            throw "Dangerous ACL edge '$edgeName' grants $rightName but labUnsafe=true is missing."
+        }
+    }
+}
+
 function Invoke-ADBuilderDirectorySemanticValidation {
     param($Config,[switch]$LabUnsafe)
     $d = $Config.providers.directory
@@ -264,7 +353,17 @@ function Invoke-ADBuilderDirectorySemanticValidation {
     $knownComputers = @{}; foreach ($c in @($d.computers)) { $knownComputers[[string]$c.name] = $c; $knownComputers["$($c.name)$"] = $c }
     $builtIns = @('Domain Users','Domain Admins','Enterprise Admins','Administrators','Authenticated Users','Everyone','Domain Computers')
     foreach ($g in @($d.groups)) { foreach ($m in @($g.members)) { if (-not $knownUsers.ContainsKey($m) -and -not $knownGroups.ContainsKey($m) -and -not $knownComputers.ContainsKey($m) -and ($builtIns -notcontains $m)) { throw "Group '$($g.name)' references unknown member '$m'. Add it to users/groups/computers or use a known built-in principal." } } }
+    foreach ($g in @($d.groups)) { foreach ($parent in @($g.memberOf)) { if (-not $knownGroups.ContainsKey($parent) -and ($builtIns -notcontains $parent)) { throw "Group '$($g.name)' references unknown parent group '$parent' in memberOf." } } }
     foreach ($u in @($d.users)) { foreach ($gname in @($u.groups)) { if (-not $knownGroups.ContainsKey($gname) -and ($builtIns -notcontains $gname)) { throw "User '$($u.samAccountName)' references unknown group '$gname'." } } }
+    foreach ($u in @($d.users)) {
+        $userId = if (-not [string]::IsNullOrWhiteSpace([string]$u.samAccountName)) { [string]$u.samAccountName } elseif (Test-ADBuilderHasProperty $u 'name') { [string]$u.name } else { '<unknown user>' }
+        if ((Test-ADBuilderHasProperty $u 'spns') -and (Test-ADBuilderHasEffectiveValue $u.spns)) {
+            throw "providers.directory.users[].spns is accepted by the schema but not implemented by this ADBuilder runtime. Affected user: '$userId'. Remove it or enable the future SPN provider."
+        }
+        if ((Test-ADBuilderHasProperty $u 'accountControlFlags') -and (Test-ADBuilderHasEffectiveValue $u.accountControlFlags)) {
+            throw "providers.directory.users[].accountControlFlags is accepted by the schema but not implemented by this ADBuilder runtime. Affected user: '$userId'. Remove it or implement account-control support."
+        }
+    }
     Test-ADBuilderGroupCycles -Groups $d.groups
     $precedence = @{}
     foreach ($p in @($d.fineGrainedPasswordPolicies)) {
@@ -277,9 +376,19 @@ function Invoke-ADBuilderDirectorySemanticValidation {
             throw "FGPP '$($p.name)' appliesTo unknown target '$target'."
         }
     }
-    foreach ($edge in @($d.delegations) + @($d.aclEdges)) {
-        if ($edge -and $edge.labUnsafe -eq $true -and -not $LabUnsafe) { throw "ACL/delegation '$($edge.name)' has labUnsafe=true and requires -LabUnsafe." }
+    foreach ($edge in @($d.delegations)) {
+        if ($null -eq $edge) { continue }
+        if ((Get-ADBuilderProperty $edge 'labUnsafe' $false) -eq $true -and -not $LabUnsafe) { throw "ACL/delegation '$(Get-ADBuilderAclEdgeName -Edge $edge)' has labUnsafe=true and requires -LabUnsafe." }
         foreach ($r in @($edge.rights)) { if (@('GenericAll','GenericRead','GenericWrite','WriteDacl','WriteOwner','CreateChild','DeleteChild','ReadProperty','WriteProperty','ExtendedRight','Delete','ListChildren') -notcontains [string]$r) { throw "Unsupported ACL right '$r' in M1. Use one of the documented simple ActiveDirectoryRights values." } }
+        Assert-ADBuilderUnsupportedAclPrecisionFields -Edge $edge -CollectionPath 'providers.directory.delegations[]'
+        Assert-ADBuilderDangerousAclRequiresLabUnsafe -Edge $edge
+    }
+    foreach ($edge in @($d.aclEdges)) {
+        if ($null -eq $edge) { continue }
+        if ((Get-ADBuilderProperty $edge 'labUnsafe' $false) -eq $true -and -not $LabUnsafe) { throw "ACL/delegation '$(Get-ADBuilderAclEdgeName -Edge $edge)' has labUnsafe=true and requires -LabUnsafe." }
+        foreach ($r in @($edge.rights)) { if (@('GenericAll','GenericRead','GenericWrite','WriteDacl','WriteOwner','CreateChild','DeleteChild','ReadProperty','WriteProperty','ExtendedRight','Delete','ListChildren') -notcontains [string]$r) { throw "Unsupported ACL right '$r' in M1. Use one of the documented simple ActiveDirectoryRights values." } }
+        Assert-ADBuilderUnsupportedAclPrecisionFields -Edge $edge -CollectionPath 'providers.directory.aclEdges[]'
+        Assert-ADBuilderDangerousAclRequiresLabUnsafe -Edge $edge
     }
 }
 
@@ -287,7 +396,16 @@ function Test-ADBuilderGroupCycles {
     param($Groups)
     $graph = @{}; $groupNames = @{}
     foreach ($g in @($Groups)) { $groupNames[[string]$g.name] = $true; $graph[[string]$g.name] = @() }
-    foreach ($g in @($Groups)) { $children=@(); foreach ($m in @($g.members)) { if ($groupNames.ContainsKey([string]$m)) { $children += [string]$m } }; $graph[[string]$g.name] = $children }
+    foreach ($g in @($Groups)) {
+        $groupName = [string]$g.name
+        $children=@($graph[$groupName])
+        foreach ($m in @($g.members)) { if ($groupNames.ContainsKey([string]$m)) { $children += [string]$m } }
+        $graph[$groupName] = @($children | Select-Object -Unique)
+        foreach ($parent in @($g.memberOf)) {
+            $parentName = [string]$parent
+            if ($groupNames.ContainsKey($parentName)) { $graph[$parentName] = @(@($graph[$parentName]) + $groupName | Select-Object -Unique) }
+        }
+    }
     $visiting=@{}; $visited=@{}
     function VisitGroup([string]$n) { if ($visiting.ContainsKey($n)) { throw "Circular group nesting detected at '$n'." }; if ($visited.ContainsKey($n)) { return }; $visiting[$n]=$true; foreach ($m in @($graph[$n])) { VisitGroup $m }; $visiting.Remove($n); $visited[$n]=$true }
     foreach ($name in $graph.Keys) { VisitGroup $name }

@@ -46,7 +46,7 @@ function Resolve-ADBuilderDirectoryPath {
     param($Context,[string]$Path)
     $base = Get-ADBuilderDomainDN -Context $Context
     if ([string]::IsNullOrWhiteSpace($Path) -or $Path -eq '/') { return $base }
-    if ($Path.ToUpperInvariant().Contains('DC=')) { return $Path }
+    if ($Path -match '(?i)(?:^|,)\s*DC=') { return $Path }
     return "$Path,$base"
 }
 
@@ -229,10 +229,24 @@ function ConvertTo-ADBuilderCanonicalMemberName {
     return $Name
 }
 
+function Add-ADBuilderDesiredMembership {
+    param($Membership,[string]$GroupName,[string]$MemberName)
+    if ([string]::IsNullOrWhiteSpace($GroupName) -or [string]::IsNullOrWhiteSpace($MemberName)) { return }
+    if (-not $Membership.ContainsKey($GroupName)) { $Membership[$GroupName] = New-Object System.Collections.ArrayList }
+    if (-not $Membership[$GroupName].Contains($MemberName)) { [void]$Membership[$GroupName].Add($MemberName) }
+}
+
 function Get-ADBuilderDesiredMemberships { param($DirectoryConfig)
     $membership = @{}
-    foreach ($g in @($DirectoryConfig.groups)) { if (-not $membership.ContainsKey([string]$g.name)) { $membership[[string]$g.name] = New-Object System.Collections.ArrayList }; foreach ($m in @($g.members)) { [void]$membership[[string]$g.name].Add([string]$m) } }
-    foreach ($u in @($DirectoryConfig.users)) { foreach ($gname in @($u.groups)) { if (-not $membership.ContainsKey([string]$gname)) { $membership[[string]$gname] = New-Object System.Collections.ArrayList }; [void]$membership[[string]$gname].Add([string]$u.samAccountName) } }
+    foreach ($g in @($DirectoryConfig.groups)) {
+        $groupName = [string]$g.name
+        if (-not [string]::IsNullOrWhiteSpace($groupName) -and -not $membership.ContainsKey($groupName)) { $membership[$groupName] = New-Object System.Collections.ArrayList }
+        foreach ($m in @($g.members)) { Add-ADBuilderDesiredMembership -Membership $membership -GroupName $groupName -MemberName ([string]$m) }
+        foreach ($parent in @($g.memberOf)) { Add-ADBuilderDesiredMembership -Membership $membership -GroupName ([string]$parent) -MemberName $groupName }
+    }
+    foreach ($u in @($DirectoryConfig.users)) {
+        foreach ($gname in @($u.groups)) { Add-ADBuilderDesiredMembership -Membership $membership -GroupName ([string]$gname) -MemberName ([string]$u.samAccountName) }
+    }
     return $membership
 }
 
@@ -301,13 +315,20 @@ function Invoke-ADBuilderDirectoryFGPP {
             } else {
                 Add-ADBuilderSummary -Bucket 'fgpp' -Action Skipped
             }
+            $existingSubjects = Get-ADBuilderADObjectOrNull { Get-ADFineGrainedPasswordPolicySubject -Identity $name -ErrorAction Stop }
+            $currentSubjectNames = @()
+            foreach ($s in @($existingSubjects)) {
+                if ($null -eq $s) { continue }
+                if ($s.SamAccountName) { $currentSubjectNames += [string]$s.SamAccountName }
+                if ($s.Name) { $currentSubjectNames += [string]$s.Name }
+            }
             foreach ($target in @($p.appliesTo)) {
-                try {
-                    Add-ADFineGrainedPasswordPolicySubject -Identity $name -Subjects $target -ErrorAction Stop
-                    Add-ADBuilderSummary -Bucket 'fgppSubjects' -Action Created
-                } catch {
-                    if ($_.Exception.Message -match 'already|existe') { Add-ADBuilderSummary -Bucket 'fgppSubjects' -Action Skipped } else { throw }
+                if ($currentSubjectNames -contains [string]$target) {
+                    Add-ADBuilderSummary -Bucket 'fgppSubjects' -Action Skipped
+                    continue
                 }
+                Add-ADFineGrainedPasswordPolicySubject -Identity $name -Subjects $target -ErrorAction Stop
+                Add-ADBuilderSummary -Bucket 'fgppSubjects' -Action Created
             }
         } catch { Write-ADBuilderLog -Level Error -Message "FGPP failed '$name': $($_.Exception.Message)"; Add-ADBuilderSummary -Bucket 'fgpp' -Action Failed }
     }

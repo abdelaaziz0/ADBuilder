@@ -6,7 +6,7 @@ param(
     [string]$Gateway = '172.20.10.1',
     [string]$PrePromotionDns = '',
     [string]$ComputerName = 'DC01',
-    [string]$ConfigPath = '.\examples\lab-newforest-m1.json',
+    [string]$ConfigPath = '.\examples\reference.json',
     [switch]$NoAutoReboot,
     [switch]$ResetState,
     [switch]$SkipDryRun,

@@ -1,13 +1,13 @@
 [CmdletBinding()]
 param(
-    [string]$ConfigPath = '.\examples\lab-newforest-m1.json',
+    [string]$ConfigPath = '.\examples\reference.json',
     [switch]$NoReducedValidation
 )
 $ErrorActionPreference='Stop'
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $root
 $rv = @()
-if (-not $NoReducedValidation) { $rv += '-AllowReducedValidation' }
+if (-not $NoReducedValidation) { $rv += '-UnsafeReducedValidation' }
 $badPath = Join-Path $root 'state\bad-modeblock-test.json'
 if (!(Test-Path .\state)) { New-Item -ItemType Directory -Path .\state -Force | Out-Null }
 $j = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
@@ -17,8 +17,8 @@ $out = Join-Path $root 'state\bad-modeblock-test.out.txt'
 $err = Join-Path $root 'state\bad-modeblock-test.err.txt'
 Remove-Item $out,$err -ErrorAction SilentlyContinue
 $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-$args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $root 'Validate-ADBuilderConfig.ps1'),'-ConfigPath',$badPath,'-NonInteractive') + $rv
-$p = Start-Process -FilePath $ps -ArgumentList $args -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+$argList = @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $root 'Validate-ADBuilderConfig.ps1'),'-ConfigPath',$badPath,'-NonInteractive') + $rv
+$p = Start-Process -FilePath $ps -ArgumentList $argList -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
 $text = ''
 if (Test-Path $out) { $text += Get-Content $out -Raw }
 if (Test-Path $err) { $text += Get-Content $err -Raw }
